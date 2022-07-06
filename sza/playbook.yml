@@ -13,8 +13,12 @@
         name: srv.lan
       - address: 10.20.2.1
         name: clt.lan
+    srv_from: 10.10.1.11
+    srv_to: 10.10.1.254
+    clt_from: 10.20.2.21
+    clt_to: 10.20.2.254
     interfaces:
-      - enp0s1
+      - enp1s0
     forwarders:
       - 1.1.1.1
       - 1.0.0.1
@@ -41,12 +45,16 @@
       dest: /etc/resolv.conf
       owner: root
       group: root
-      mode: 0660
+      mode: 0664
   - name: "Adding entries in hosts file"
     template:
       src: templates/hosts.j2
       dest: /etc/hosts
       owner: root
       group: root
-      mode: 0660
+      mode: 0664
+  - name: "Restarting dnsmasq"
+    service:
+      name: dnsmasq
+      state: restarted
     

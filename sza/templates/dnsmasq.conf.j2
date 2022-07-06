@@ -1,15 +1,18 @@
-listen-address=
-{% for ip in domain %}
-{{ ip.address }},
-{% endfor %}127.0.0.1
+listen-address={% for ip in domain %}{{ ip.address }},{% endfor %}127.0.0.1
 {% for inter in interfaces %}
 interface={{ inter }}
 {% endfor %}
 expand-hosts
-domain=srv.lan
+{% for domain in domain %}
+domain={{ domain.name }}
+{% endfor %}
 {% for forwarder in forwarders %}
 server={{ forwarder }}
 {% endfor %}
 {% for ip_domain in domain %}
 address=/{{ ip_domain.name }}/{{ ip_domain.address }}
 {% endfor %}
+dhcp-range={{ srv_from }},{{ srv_to }},12h
+dhcp-range={{ clt_from }},{{ clt_to }},12h
+dhcp-leasefile=/var/lib/misc/dnsmasq.leases
+dhcp-authoritative
