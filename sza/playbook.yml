@@ -1,0 +1,60 @@
+---
+- name: dnsmasq
+  hosts: srv1
+  tasks:
+  - name: Ping
+    ansible.builtin.ping:
+- name: "DNS + DHCP setup"
+  hosts: srv1
+  become: true
+  vars:
+    domain:
+      - address: 10.10.1.1
+        name: srv.lan
+      - address: 10.20.2.1
+        name: clt.lan
+    srv_from: 10.10.1.11
+    srv_to: 10.10.1.254
+    clt_from: 10.20.2.21
+    clt_to: 10.20.2.254
+    interfaces:
+      - enp1s0
+    forwarders:
+      - 1.1.1.1
+      - 1.0.0.1
+  tasks: 
+  - name: "Installing dnsmasq"
+    apt:
+      name: dnsmasq
+      update_cache: true
+  - name: "Starting and enabling dnsmasq"
+    service:
+      name: dnsmasq
+      state: started
+      enabled: yes
+  - name: "Creating dnsmasq.conf"
+    template:
+      src: templates/dnsmasq.conf.j2
+      dest: /etc/dnsmasq.conf
+      owner: root
+      group: root
+      mode: 0660
+  - name: "Generating new resolv.conf"
+    template:
+      src: templates/resolv.conf.j2
+      dest: /etc/resolv.conf
+      owner: root
+      group: root
+      mode: 0664
+  - name: "Adding entries in hosts file"
+    template:
+      src: templates/hosts.j2
+      dest: /etc/hosts
+      owner: root
+      group: root
+      mode: 0664
+  - name: "Restarting dnsmasq"
+    service:
+      name: dnsmasq
+      state: restarted
+    

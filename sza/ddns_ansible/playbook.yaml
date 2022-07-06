@@ -1,0 +1,164 @@
+- name: DNS
+  hosts: srv1
+  become: true
+  vars:
+    forwarders:
+    - 1.1.1.1
+    - 1.0.0.1
+    key:
+      file: "/etc/bind/rndc.key"
+      name: "rndc-key"
+    zones:
+      - name: srv.lan
+        type: master
+        reverse: 1.10.10
+        records:
+        - name: "@"
+          type: NS
+          value: "ns1.srv.lan."
+        - name: "@"
+          type: MX
+          value: "10 mail"
+        - name: ns1
+          type: A
+          value: 10.10.1.1
+        - name: srv1
+          type: A
+          value: 10.10.1.1
+        - name: mail
+          type: A
+          value: 10.10.1.1
+        - name: imap
+          type: A
+          value: 10.10.1.1
+        - name: www
+          type: A
+          value: 10.10.1.1
+        - name: pop3
+          type: A
+          value: 10.10.1.1
+        - name: smtp
+          type: CNAME
+          value: mail
+        - name: 1
+          type: PTR
+          value: "ns1.srv.lan."
+        - name: 3
+          type: PTR
+          value: "imap.srv.lan."
+      - name: clt.lan
+        type: master
+        reverse: 2.20.10
+        records:
+        - name: "@"
+          type: NS
+          value: "ns1.clt.lan."
+        - name: ns1
+          type: A
+          value: 10.10.1.1
+        - name: mail
+          type: A
+          value: 10.10.1.1
+        - name: imap
+          type: A
+          value: 10.10.1.3
+        - name: www
+          type: A
+          value: 10.10.1.1
+        - name: pop3
+          type: A
+          value: 10.10.1.1
+        - name: smtp
+          type: CNAME
+          value: mail
+        - name: 1
+          type: PTR
+          value: "ns1.srv.lan."
+  tasks:
+  - name: "Install bind9"
+    apt:
+      name: bind9
+      update_cache: true
+  - name: "Create named.conf from template"
+    template:
+      src: templates/named.conf.j2
+      dest: /etc/bind/named.conf
+      owner: root
+      group: bind
+      mode: 0640
+  - name: "Create database for the zones"
+    template:
+      src: templates/db.j2
+      dest: "/var/cache/bind/db.{{ item.name }}"
+      owner: root
+      group: bind
+      mode: 0660
+    loop: "{{ zones }}"
+  - name: "Create reverse databases for the zones"
+    template:
+      src: templates/db.reverse.j2
+      dest: "/var/cache/bind/db.{{ item.reverse }}"
+      owner: root
+      group: bind
+      mode: 0660
+    loop: "{{ zones }}"
+    when: "item.reverse is defined"
+  - name: "Restart bind9 service"
+    service:
+      name: bind9
+      state: restarted
+- name: DHCP
+  hosts: srv1
+  become: true
+  vars:
+    key:
+      file: "/etc/bind/rndc.key"
+      name: "rndc-key"
+    subnets:
+    - ip: 10.10.1.0
+      netmask: 255.255.255.0
+      interface: enp1s0
+      from: 10.10.1.11
+      to: 10.10.1.253
+      options:
+        domain_name_servers:
+        - 10.10.1.1
+        domain_name: srv.lan
+        reverse: 1.10.10
+        routers:
+        - 10.10.1.254
+    - ip: 10.20.2.0
+      netmask: 255.255.255.0
+      interface: enp1s0
+      from: 10.20.2.21
+      to: 10.20.2.253
+      options:
+        domain_name_servers:
+        - 10.10.1.1
+        domain_name: clt.lan
+        reverse: 2.20.10
+        routers:
+        - 10.20.2.254
+  tasks:
+  - name: "Install isc-dhcp-server"
+    apt:
+      name: isc-dhcp-server
+      update_cache: true
+  - name: "Create dhcpd.conf"
+    template:
+      src: templates/dhcpd.conf.j2
+      dest: "/etc/dhcp/dhcpd.conf"
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Only enable the neccessary interfaces"
+    template:
+      src: templates/dhcp_default.j2
+      dest: /etc/default/isc-dhcp-server
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Restart isc-dhcp-server service"
+    service:
+      name: isc-dhcp-server
+      state: restarted
