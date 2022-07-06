@@ -1,6 +1,0 @@
-virtualmachines:
-  hosts:
-    srv1:
-      ansible_host: 10.10.1.1
-  vars:
-    ansible_user: holorum
