@@ -1,0 +1,71 @@
+---
+- name: Email
+  hosts: server
+  tasks:
+  - name: Ping
+    ansible.builtin.ping:
+- name: "Postfix and Dovecot setup"
+  hosts: server
+  become: true
+  vars:
+    hostname: mail.srv.lan
+    domain: srv.lan
+    subnet: 10.10.1.0/24
+    maildir_location: ~/Maildir
+    pkgs:
+    - postfix
+    - sasl2-bin
+    - dovecot-core
+    - dovecot-pop3d
+    - dovecot-imapd
+  tasks:
+  - name: "Installing postfix and dovecot"
+    apt:
+      name: "{{ item }}"
+      update_cache: true
+    loop: "{{ pkgs }}"
+  - name: "Creating main.cf for Postfix"
+    template:
+      src: templates/postfix_main.cf.j2
+      dest: /etc/postfix/main.cf
+      owner: root
+      group: root
+      mode: 0664
+  - name: "Creating dovecot.conf"
+    template:
+      src: templates/dovecot.conf.j2
+      dest: /etc/dovecot/dovecot.conf
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating 10-auth.conf for Dovecot"
+    template:
+      src: templates/dovecot_10-auth.conf.j2
+      dest: /etc/dovecot/conf.d/10-auth.conf
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating 10-mail.conf for Dovecot"
+    template:
+      src: templates/dovecot_10-mail.conf.j2
+      dest: /etc/dovecot/conf.d/10-mail.conf
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating 10-master.conf for Dovecot"
+    template:
+      src: templates/dovecot_10-master.conf.j2
+      dest: /etc/dovecot/conf.d/10-master.conf
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating new aliases and restarting Postfix"
+    ansible.builtin.script:
+      cmd: newaliases
+    service:
+      name: postfix
+      state: restarted
+  - name: "Restarting Dovecot"
+    service:
+      name: dovecot
+      state: restarted
