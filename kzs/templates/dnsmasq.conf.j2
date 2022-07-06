@@ -12,7 +12,6 @@ server={{ forwarder }}
 {% for ip_domain in domain %}
 address=/{{ ip_domain.name }}/{{ ip_domain.address }}
 {% endfor %}
-{% for range in ip_range %}
 dhcp-range={{ srv_from }},{{ srv_to }},12h
 dhcp-range={{ clt_from }},{{ clt_to }},12h
 dhcp-leasefile=/var/lib/dnsmasq/dnsmasq.leases
