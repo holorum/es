@@ -46,14 +46,14 @@
       dest: /etc/resolv.conf
       owner: root
       group: root
-      mode: 0660
+      mode: 0664
   - name: "Adding entries in hosts file"
     template:
       src: templates/hosts.j2
       dest: /etc/hosts
       owner: root
       group: root
-      mode: 0660
+      mode: 0664
   - name: "Restarting dnsmasq"
     service:
       name: dnsmasq
