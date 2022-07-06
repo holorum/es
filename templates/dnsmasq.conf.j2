@@ -1,0 +1,15 @@
+listen-address=
+{% for ip in domain %}
+{{ ip.address }},
+{% endfor %}127.0.0.1
+{% for inter in interfaces %}
+interface={{ inter }}
+{% endfor %}
+expand-hosts
+domain=srv.lan
+{% for forwarder in forwarders %}
+server={{ forwarder }}
+{% endfor %}
+{% for ip_domain in domain %}
+address=/{{ ip_domain.name }}/{{ ip_domain.address }}
+{% endfor %}
