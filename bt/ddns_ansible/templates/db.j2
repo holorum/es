@@ -1,0 +1,29 @@
+$TTL    86400
+
+@   IN  SOA {{ item.name }}.    root.{{ item.name }}. (
+
+    1
+
+    604800
+
+    86400
+
+    2419200
+
+    86400 )
+
+{% for record in item.records %}
+
+{% if record.type != 'PTR' and record.type != 'MX' %}
+
+{{ record.name }}   IN  {{ record.type }}   {{ record.value }}
+
+{% endif %}
+
+{% if record.type == 'MX' %}
+
+{{ record.name }}   MX  {{ record.priority }} {{ record.value }}
+
+{% endif %}
+
+{% endfor %}

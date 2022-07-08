@@ -1,0 +1,11 @@
+virtualmachines:
+
+  hosts:
+
+    srv1:
+
+      ansible_host: 10.10.1.2
+
+  vars:
+
+    ansible_user: tomi
