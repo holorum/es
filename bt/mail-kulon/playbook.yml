@@ -1,0 +1,124 @@
+---
+- name: "Postfix setup"
+  hosts: srv1
+  become: true
+  vars:
+      mail_owner: "postfix"
+      hostname: "mail.clt.lan"
+      domain: "clt.lan"
+      subnet: "10.20.2.0/24"
+      dovecot_srv_ip: "10.20.2.2"
+      users:
+      - name: bob
+        group: bob
+        password: "{{ 'bob' | password_hash('sha512') }}"
+      - name: alice
+        group: alice
+        password: "{{ 'alice' | password_hash('sha512') }}"
+      postfix_pkgs:
+      - "postfix"
+      - "sasl2-bin"
+  tasks:
+  - name: "Installing Postfix"
+    apt:
+      name: "{{ item }}"
+      update_cache: true
+    loop: "{{ postfix_pkgs }}"
+  - name: "Configuring main.cf"
+    template:
+      src: templates/main.cf.j2
+      dest: /etc/postfix/main.cf
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring master.cf"
+    template:
+      src: templates/master.cf.j2
+      dest: /etc/postfix/master.cf
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Creating groups"
+    ansible.builtin.group:
+      name: "{{ item.group }}"
+      state: present
+    loop: "{{ users }}"
+  - name: "Creating users"
+    user:
+      name: "{{ item.name }}"
+      group: "{{ item.group }}"
+      password: "{{ item.password }}"
+      state: present
+    loop: "{{ users }}"
+  - name: "Creating newaliases and restarting Postfix"
+    service:
+      name: "postfix"
+      state: "reloaded"
+- name: "Setting up Dovecot"
+  hosts: srv2
+  become: true
+  vars:
+    maildir_location: "~/Maildir"
+    users:
+      - name: bob
+        group: bob
+        password: "{{ 'bob' | password_hash('sha512') }}"
+      - name: alice
+        group: alice
+        password: "{{ 'alice' | password_hash('sha512') }}"
+    dovecot_pkgs:
+      - "dovecot-core"
+      - "dovecot-imapd"
+      - "dovecot-pop3d"
+      - "dovecot-lmtpd"
+    dovecot_srv_ip: "10.20.2.2"
+  tasks:
+  - name: "Installing Dovecot"
+    apt:
+      name: "{{ item }}"
+      update_cache: true
+    loop: "{{ dovecot_pkgs }}"
+  - name: "Configuring dovecot.conf"
+    template:
+      src: templates/dovecot.conf.j2
+      dest: "/etc/dovecot/dovecot.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring 10-auth.conf"
+    template:
+      src: templates/10-auth.conf.j2
+      dest: "/etc/dovecot/conf.d/10-auth.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring 10-mail.conf"
+    template:
+      src: templates/10-mail.conf.j2
+      dest: "/etc/dovecot/conf.d/10-mail.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring 10-master.conf"
+    template:
+      src: templates/10-master.conf.j2
+      dest: "/etc/dovecot/conf.d/10-master.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Creating groups"
+    ansible.builtin.group:
+      name: "{{ item.group }}"
+      state: present
+    loop: "{{ users }}"
+  - name: "Creating users"
+    user:
+      name: "{{ item.name }}"
+      password: "{{ item.password }}"
+      group: "{{ item.group }}"
+      state: present
+    loop: "{{ users }}"
+  - name: "Restarting dovecot"
+    service:
+      name: "dovecot"
+      state: "restarted"
