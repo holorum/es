@@ -1,0 +1,25 @@
+apt-get update
+apt-get upgrade openssl
+
+apt-get install apache2
+
+a2enmod ssl
+
+a2ensite default-ssl
+
+service apache2 reload
+
+mkdir /etc/apache2/ssl
+
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/apache2/ssl/apache.key -out /etc/apache2/ssl/apache
+
+sudo chmod 600 /etc/apache2/ssl/*
+
+nano /etc/apache2/sites-enabled/default-ssl.conf
+    ServerAdmin webmaster@localhost
+    ServerName example.com:443
+    ...
+    SSLCertificateFile /etc/apache2/ssl/apache.crt
+    SSLCertificateKeyFile /etc/apache2/ssl/apache.key
+
+service apache2 reload
