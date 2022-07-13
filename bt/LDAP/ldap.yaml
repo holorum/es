@@ -1,0 +1,68 @@
+---
+- name: Installing LDAP server
+  hosts: srv1
+  become: true
+  vars:
+    password: asdf
+    bind_dn: "cn=admin,dc=clt,dc=lan"
+    ldap_groups:
+    - ou: mail
+      dc: clt.lan
+    ldap_accounts:
+    - uid: mailuser
+      ou: mail
+      dc: clt.lan
+  tasks:
+  - name: Openldap conf
+    debconf:
+      name: "slapd"
+      question: 'slapd/no_configuration'
+      value: "false"
+      vtype: boolean
+  - name: Set openldap password
+    debconf:
+      name: "slapd"
+      question: 'slapd/password1'
+      value: "{{ password }}"
+      vtype: password
+  - name: Confirm openldap password
+    debconf:
+      name: "slapd"
+      question: 'slapd/password2'
+      value: "{{ password }}"
+      vtype: password
+  - name: Set openldap domain
+    debconf:
+      name: "slapd"
+      question: 'slapd/domain'
+      value: clt.lan
+      vtype: string
+  - name: Install packages
+    apt:
+      name: "{{ item }}"
+      state: present
+      update_cache: yes
+    loop:
+      - slapd
+      - ldap-utils
+      - python3-ldap
+  - name: Adding groups
+    ldap_entry:
+      dn: "{{ item.keys() | zip(item.values()) | map('join', '=') | join(',') | regex_replace('\\.', ',dc=') }}"
+      objectClass:
+        - organizationalUnit
+      state: present
+      server_uri: ldap://localhost/
+      bind_dn: "{{ bind_dn }}"
+      bind_pw: "{{ password }}"
+    loop: "{{ ldap_groups }}"
+  - name: Add accounts
+    ldap_entry:
+      dn: "{{ item.keys() | zip(item.values()) | map('join', '=') | join(',') | regex_replace('\\.', ',dc=') }}"
+      objectClass:
+      - account
+      state: present
+      server_uri: ldap://localhost
+      bind_dn: "{{ bind_dn }}"
+      bind_pw: "{{ password }}"
+    loop: "{{ ldap_accounts }}"
