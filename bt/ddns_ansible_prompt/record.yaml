@@ -1,0 +1,35 @@
+- name: "Record name {{ record_index }}"
+  pause:
+    prompt: "Record name [@]"
+  register: record_name
+- name: "Record type {{ record_index }}"
+  pause:
+    prompt: "Record type [A]"
+  register: record_type
+- name: "MX priority {{ record_index }}"
+  pause:
+    prompt: "MX record priority [10]"
+  register: record_priority
+  when: record_type.user_input == 'MX'
+- name: "Record value {{ record_index }}"
+  pause:
+    prompt: "Record value"
+  register: record_value
+- name: "Registering record {{ record_index }}"
+  set_fact:
+    record:
+      name: "{{ record_name.user_input | default('@', true) }}"
+      type: "{{ record_type.user_input | default('A', true) }}"
+      value: "{{ record_value.user_input }}"
+  when: record_type.user_input != 'MX'
+- name: "Registering MX record {{ record_index }}"
+  set_fact:
+    record:
+      name: "{{ record_name.user_input | default('@', true) }}"
+      type: MX
+      priority: "{{ record_priority.user_input | default('10', true) }}"
+      value: "{{ record_value.user_input }}"
+  when: record_type.user_input == 'MX'
+- name: "Appending record {{ record_index }}"
+  set_fact:
+    records: "{{ records | default([]) + [ record ] }}"

@@ -1,0 +1,33 @@
+- name: "Zone name {{ zone_index }}"
+  pause:
+    prompt: "Zone name"
+  register: zone_name
+- name: "Zone type {{ zone_index }}"
+  pause:
+    prompt: "Zone type [master]"
+  register: zone_type
+- name: "Reverse zone IP {{ zone_index }}"
+  pause:
+    prompt: "Reverse zone IP"
+  register: zone_reverse
+- name: "Number of records {{ zone_index }}"
+  pause:
+    prompt: "Number of records"
+  register: record_num
+- name: "Empty records {{ zone_index }}"
+  set_fact:
+    records: []
+- include_tasks: record.yaml
+  loop: "{{ query('sequence', 'start=1 end='+(record_num.user_input) | string) }}"
+  loop_control:
+    loop_var: record_index
+- name: Registering zone
+  set_fact:
+    zone:
+      name: "{{ zone_name.user_input }}"
+      type: "{{ zone_type.user_input | default('master', true) }}"
+      reverse: "{{ zone_reverse.user_input }}"
+      records: "{{ records }}"
+- name: "Appending zone {{ zone_index }}"
+  set_fact:
+    zones: "{{ zones | default([]) + [ zone ] }}"

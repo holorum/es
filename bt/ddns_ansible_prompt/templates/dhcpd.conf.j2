@@ -1,0 +1,65 @@
+default-lease-time 600;
+max-lease-time 7200;
+
+{% set ddns = key is defined and key.file is defined and key.name is defined %}
+{% if ddns %}
+ddns-updates on;
+ddns-update-style interim;
+include "{{ key.file }}";
+{% else %}
+ddns-update-style none;
+{% endif %}
+
+{% if subnets is defined %}
+{% for subnet in subnets %}
+subnet {{ subnet.ip }} netmask {{ subnet.netmask }} {
+    {% if subnet.interface is defined %}
+    interface {{subnet.interface}};
+    {% endif %}
+    range {{ subnet.from }} {{ subnet.to }};
+    {% if subnet.options is defined %}
+    {% if subnet.options.domain_name_servers is defined %}
+    option domain-name-servers {% for server in subnet.options.domain_name_servers %}
+    {{ server }}
+    {%- if not loop.last %} {% endif %}
+    {% endfor %};
+    {% endif %}
+    {% if subnet.options.domain_name is defined %}
+    option domain-name "{{ subnet.options.domain_name }}";
+    {% endif %}
+    {% if subnet.options.routers is defined %}
+    option routers {% for server in subnet.options.routers %}
+    {{ server }}
+    {%- if not loop.last %} {% endif %}
+    {% endfor %};
+    {% endif %}
+    {% if subnet.options.broadcast_address is defined %}
+    option broadcast-address "{{ subnet.options.broadcast_address }}";
+    {% endif %}
+    {% endif %}
+}
+{% if ddns %}
+{% if subnet.options is defined and subnet.options.domain_name is defined %}
+zone {{ subnet.options.domain_name }}. {
+    primary 127.0.0.1;
+    key {{ key.name }};
+}
+{% endif %}
+{% if subnet.options is defined and subnet.options.reverse is defined %}
+zone {{ subnet.options.reverse }}.in-addr.arpa. {
+    primary 127.0.0.1;
+    key {{ key.name }};
+}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if fixed_hosts is defined %}
+{% for host in fixed_hosts %}
+host {{ host.name }} {
+    hardware ethernet {{ host.mac }};
+    fixed-address {{ host.address }};
+}
+{% endfor %}
+{% endif %}
