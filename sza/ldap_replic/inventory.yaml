@@ -1,0 +1,12 @@
+virtualmachines:
+  hosts:
+    srv1:
+      ansible_host: 10.10.1.1
+    dovecot:
+      ansible_host: 10.10.1.2
+    ldap1:
+      ansible_host: 10.10.1.3
+    ldap2:
+      ansible_host: 10.10.1.4
+  vars:
+    ansible_user: holorum

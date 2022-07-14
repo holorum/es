@@ -1,0 +1,5 @@
+#!/bin/bash
+
+ldapadd -x -D cn=admin,dc=srv,dc=lan -w asdf -f /root/base.ldif
+ldapadd -X EXTERNAL -H ldapi:/// -f mod_syncprov.ldif
+ldapadd -X EXTERNAL -H ldapi:/// -f syncprov.ldif

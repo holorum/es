@@ -1,0 +1,193 @@
+- name: Installing LDAP server
+  hosts: ldap1
+  become: true
+  vars:
+    password: asdf
+    bind_dn: "cn=admin,dc=srv,dc=lan"
+    ldap_groups:
+    - ou: mail
+      dc: srv.lan
+    ldap_accounts:
+    - uid: mailuser
+      ou: mail
+      dc: srv.lan
+  tasks:
+  - name: Openldap conf
+    debconf:
+      name: "slapd"
+      question: 'slapd/no_configuration'
+      value: "false"
+      vtype: boolean
+  - name: Set openldap password
+    debconf:
+      name: "slapd"
+      question: 'slapd/password1'
+      value: "{{ password }}"
+      vtype: password
+  - name: Confirm openldap password
+    debconf:
+      name: "slapd"
+      question: 'slapd/password2'
+      value: "{{ password }}"
+      vtype: password
+  - name: Set openldap domain
+    debconf:
+      name: "slapd"
+      question: 'slapd/domain'
+      value: srv.lan
+      vtype: string
+  - name: Install packages
+    apt:
+      name: "{{ item }}"
+      state: present
+      update_cache: yes
+    loop:
+      - slapd
+      - ldap-utils
+      - python3-ldap
+  - name: Adding groups
+    ldap_entry:
+      dn: "{{ item.keys() | zip(item.values()) | map('join', '=') | join(',') | regex_replace('\\.', ',dc=') }}"
+      objectClass:
+        - organizationalUnit
+      state: present
+      server_uri: ldap://localhost/
+      bind_dn: "{{ bind_dn }}"
+      bind_pw: "{{ password }}"
+    loop: "{{ ldap_groups }}"
+  - name: Add accounts
+    ldap_entry:
+      dn: "{{ item.keys() | zip(item.values()) | map('join', '=') | join(',') | regex_replace('\\.', ',dc=') }}"
+      objectClass:
+      - account
+      state: present
+      server_uri: ldap://localhost
+      bind_dn: "{{ bind_dn }}"
+      bind_pw: "{{ password }}"
+    loop: "{{ ldap_accounts }}"
+
+  - name: "Creating base.ldif"
+    template:
+      src: templates/base.ldif.j2
+      dest: /root/base.ldif
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating mod_syncprov.ldif"
+    template:
+      src: templates/mod_syncprov.ldif.j2
+      dest: /root/mod_syncprov.ldif
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating syncprov.ldif"
+    template:
+      src: templates/syncprov.ldif.j2
+      dest: /root/base.ldif
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating ldap1.sh"
+    template:
+      src: templates/ldap1.sh.j2
+      dest: /root/ldap1.sh
+      owner: root
+      group: root
+      mode: 0755
+  - ansible.builtin.shell:
+     cmd: /root/ldap1.sh
+     chdir: /root
+
+
+- name: Installing LDAP server
+  hosts: ldap2
+  become: true
+  vars:
+    password: asdf
+    bind_dn: "cn=admin,dc=srv,dc=lan"
+    ldap_groups:
+    - ou: mail
+      dc: srv.lan
+    ldap_accounts:
+    - uid: mailuser
+      ou: mail
+      dc: srv.lan
+  tasks:
+  - name: Openldap conf
+    debconf:
+      name: "slapd"
+      question: 'slapd/no_configuration'
+      value: "false"
+      vtype: boolean
+  - name: Set openldap password
+    debconf:
+      name: "slapd"
+      question: 'slapd/password1'
+      value: "{{ password }}"
+      vtype: password
+  - name: Confirm openldap password
+    debconf:
+      name: "slapd"
+      question: 'slapd/password2'
+      value: "{{ password }}"
+      vtype: password
+  - name: Set openldap domain
+    debconf:
+      name: "slapd"
+      question: 'slapd/domain'
+      value: srv.lan
+      vtype: string
+  - name: Install packages
+    apt:
+      name: "{{ item }}"
+      state: present
+      update_cache: yes
+    loop:
+      - slapd
+      - ldap-utils
+      - python3-ldap
+  - name: Adding groups
+    ldap_entry:
+      dn: "{{ item.keys() | zip(item.values()) | map('join', '=') | join(',') | regex_replace('\\.', ',dc=') }}"
+      objectClass:
+        - organizationalUnit
+      state: present
+      server_uri: ldap://localhost/
+      bind_dn: "{{ bind_dn }}"
+      bind_pw: "{{ password }}"
+    loop: "{{ ldap_groups }}"
+  - name: Add accounts
+    ldap_entry:
+      dn: "{{ item.keys() | zip(item.values()) | map('join', '=') | join(',') | regex_replace('\\.', ',dc=') }}"
+      objectClass:
+      - account
+      state: present
+      server_uri: ldap://localhost
+      bind_dn: "{{ bind_dn }}"
+      bind_pw: "{{ password }}"
+    loop: "{{ ldap_accounts }}"
+
+  - name: "Creating base.ldif"
+    template:
+      src: templates/base.ldif.j2
+      dest: /root/base.ldif
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating syncrepl.ldif"
+    template:
+      src: templates/syncrepl.ldif.j2
+      dest: /root/syncrepl.ldif
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating ldap2.sh"
+    template:
+      src: templates/ldap2.sh.j2
+      dest: /root/ldap2.sh
+      owner: root
+      group: root
+      mode: 0755
+  - ansible.builtin.shell:
+     cmd: /root/ldap2.sh
+     chdir: "/root"

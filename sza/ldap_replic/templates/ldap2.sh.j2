@@ -1,0 +1,4 @@
+#!/bin/bash
+
+ldapadd -x -D cn=admin,dc=srv,dc=lan -w asdf -f base.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f syncrepl.ldif
