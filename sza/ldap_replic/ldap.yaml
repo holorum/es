@@ -83,7 +83,7 @@
   - name: "Creating syncprov.ldif"
     template:
       src: templates/syncprov.ldif.j2
-      dest: /root/base.ldif
+      dest: /root/syncprov.ldif
       owner: root
       group: root
       mode: 0644
