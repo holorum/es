@@ -19,6 +19,9 @@
         - name: "@"
           type: MX
           value: "10 mail"
+        - name: "@"
+          type: A
+          value: 10.10.1.1
         - name: ns1
           type: A
           value: 10.10.1.1
@@ -30,22 +33,37 @@
           value: 10.10.1.1
         - name: imap
           type: A
-          value: 10.10.1.1
+          value: 10.10.1.2
+        - name: dovecot
+          type: A
+          value: 10.10.1.2
         - name: www
           type: A
           value: 10.10.1.1
         - name: pop3
           type: A
-          value: 10.10.1.1
+          value: 10.10.1.2
+        - name: ldap1
+          type: A
+          value: 10.10.1.3
+        - name: ldap2
+          type: A
+          value: 10.10.1.4
         - name: smtp
           type: CNAME
           value: mail
         - name: 1
           type: PTR
           value: "ns1.srv.lan."
-        - name: 3
+        - name: 2
           type: PTR
           value: "imap.srv.lan."
+        - name: 3
+          type: PTR
+          value: "ldap1.srv.lan."
+        - name: 4
+          type: PTR
+          value: "ldap2.srv.lan."
       - name: clt.lan
         type: master
         reverse: 2.20.10
@@ -61,13 +79,13 @@
           value: 10.10.1.1
         - name: imap
           type: A
-          value: 10.10.1.3
+          value: 10.10.1.2
         - name: www
           type: A
           value: 10.10.1.1
         - name: pop3
           type: A
-          value: 10.10.1.1
+          value: 10.10.1.2
         - name: smtp
           type: CNAME
           value: mail
