@@ -5,7 +5,7 @@ olcSyncRepl: rid=001
   provider=ldap://ldap1.srv.lan:389/
   bindmethod=simple
   binddn="cn=admin,dc=srv,dc=lan"
-  credentials=asdf
+  credentials={{ password }}
   searchbase="dc=srv,dc=lan"
   scope=sub
   schemachecking=on

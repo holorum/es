@@ -1,5 +1,5 @@
 #!/bin/bash
 
-ldapadd -x -D cn=admin,dc=srv,dc=lan -w asdf -f /root/base.ldif
+ldapadd -x -D cn=admin,dc=srv,dc=lan -w {{ password }} -f /root/base.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f mod_syncprov.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f syncprov.ldif
