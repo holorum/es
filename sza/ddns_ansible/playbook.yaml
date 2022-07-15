@@ -25,6 +25,12 @@
         - name: ns1
           type: A
           value: 10.10.1.1
+        - name: ldap
+          type: A
+          value: 10.10.1.4
+        - name: ldap
+          type: A
+          value: 10.10.1.3
         - name: srv1
           type: A
           value: 10.10.1.1
