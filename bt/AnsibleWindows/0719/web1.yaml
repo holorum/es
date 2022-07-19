@@ -1,0 +1,20 @@
+---
+- name: WEB1_SETUP
+  hosts: web1
+  gather_facts: false
+  tasks:
+    - name: Test connection with ping 
+      win_ping:
+
+    - name: Become an AD member
+      ansible.windows.win_domain_membership:
+        dns_domain_name: http.xxx
+        hostname: web1
+        domain_admin_user: Administrator@http.xxx
+        domain_admin_password: Admin123
+        state: domain
+      register: domain_state
+
+    - ansible.windows.win_reboot:
+      when: domain_state.reboot_required
+
