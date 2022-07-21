@@ -1,0 +1,21 @@
+windows:
+  hosts:
+    srv1:
+      ansible_host: 10.20.23.1
+    srv2:
+      ansible_host: 10.20.23.2
+    web1:
+      ansible_host: 10.20.23.3
+    web2:
+      ansible_host: 10.20.23.5
+    web2k:
+      ansible_host: web2.http.xxx
+    rdp1:
+      ansible_host: 10.20.23.6
+  vars:
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: Administrator
+    ansible_password: Admin123
+    ansible_winrm_transport: basic
+    ansible_port: 5985

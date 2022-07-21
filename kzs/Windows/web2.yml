@@ -1,0 +1,58 @@
+---
+- name: "Setting up web2"
+  hosts: web2
+  tasks:
+  - name: "Become AD member"
+    win_domain_membership:
+      dns_domain_name: http.xxx
+      hostname: web2
+      domain_admin_user: Administrator@http.xxx
+      domain_admin_password: Admin123
+      state: domain
+    register: domain_member
+  - name: "Rebooting web2"
+    win_reboot:
+    when: domain_member.reboot_required
+  - name: "Installing IIS"
+    win_feature:
+      name: Web-Server
+      state: present
+  #- name: "Downloading Web-deploy" #Kell mind2 webszerverre
+   # win_get_url:
+    #  url: https://download.microsoft.com/download/0/1/D/01DC28EA-638C-4A22-A57B-4CEF97755C6C/WebDeploy_amd64_en-US.msi
+     # dest: C:\msdeploy.msi
+  - name: "Installing Web-deploy"
+    ansible.windows.win_powershell:
+      script: |
+        Start-Process msiexec.exe -Wait -ArgumentList '/I C:\msdeploy.msi ADDLOCAL=ALL'
+  - name: "Starting Web-deploy for synchronization between web1 and web2"
+    ansible.windows.win_powershell:
+      script: |
+        net start msdepsvc
+
+- name: "Setting up web2 electricboogalo"
+  hosts: web2k
+  vars:
+    ansible_user: Administrator@HTTP.XXX
+    ansible_winrm_transport: kerberos
+  tasks:
+  - name: "Pulling config from web1"
+    ansible.windows.win_powershell:
+      script: |
+        cd "C:\Program Files\IIS\Microsoft Web Deploy V3\"
+        .\msdeploy.exe -verb:sync -source:metakey=lm/w3svc/1,computername=web1.http.xxx -dest:metakey=lm/w3svc/1
+  - name: "Installing NLB"
+    win_feature:
+      name: NLB
+      include_sub_features: true
+      state: present
+  - name: "Creating the NLB Cluster"
+    ansible.windows.win_powershell:
+      script: |
+        Import-Module NetworkLoadBalancingClusters
+        New-NLBCluster -Interface "Ethernet0" -OperationMode Multicast -ClusterPrimaryIP 10.20.23.20 -ClusterName IIScluster
+  - name: "Adding web1 to the cluster"
+    ansible.windows.win_powershell:
+      script: |
+        Invoke-Command -ComputerName web1 -Command {Install-WindowsFeature -name NLB -IncludeManagementTools}
+        Add-NlbClusterNode -InterfaceName "HTTP" -NewNodeName "web1" -NewNodeInterface "HTTP"

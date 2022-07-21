@@ -1,0 +1,73 @@
+- name: AD
+  hosts: srv1
+  tasks:
+  - name: AD
+    win_domain:
+      install_dns: true
+      dns_domain_name: http.xxx
+      safe_mode_password: Admin123
+    register: ad
+  - name: Reboot
+    win_reboot:
+    when: ad.reboot_required
+  - name: DC
+    win_domain_controller:
+      dns_domain_name: http.xxx
+      domain_admin_user: Administrator@http.xxx
+      domain_admin_password: Admin123
+      safe_mode_password: Admin123
+      state: domain_controller
+      site_name: SRV1
+    register: dc
+  - name: Reboot
+    win_reboot:
+    when: dc.reboot_required
+  - name: Features
+    win_feature:
+      name:
+      - AD-Certificate
+      - DHCP
+      include_sub_features: true
+      state: present
+      include_management_tools: true
+    register: features
+  - name: Reboot
+    win_reboot:
+    when: features.reboot_required
+  - name: Create Cert folder
+    win_file:
+      path: "C:\\Certs"
+      state: directory
+  - name: Create Cert share
+    win_share:
+      name: certs
+      path: "C:\\Certs"
+      list: false
+      read: Administrators
+      change: Administrators
+  - name: Powershell
+    ansible.windows.win_powershell:
+      script: |
+        Install-AdcsCertificationAuthority -CAType EnterpriseRootCA -Force
+        foreach ($ou_users in @{
+          ou = "Admins";
+          users = "Tibor","Tamas";
+        },@{
+          ou = "Modells";
+          users = "Lola","Maya";
+        },@{
+          ou = "Subscribers";
+          users = "Jhon","Jim","Jack";
+        }) {
+          $ou = $ou_users.ou
+          New-ADOrganizationalUnit -Name $ou -Path "dc=http,dc=xxx"
+          foreach ($user in $ou_users.users) {
+            New-ADUser -Name $user -Path "ou=$ou,dc=http,dc=xxx"
+          }
+        }
+        New-ADGroup -Name Girls -Path "ou=Modells,dc=http,dc=xxx" -GroupCategory Security -GroupScope Global
+        Add-ADGroupMember -Identity Girls -Members "cn=Lola,ou=Modells,dc=http,dc=xxx","cn=Maya,ou=Modells,dc=http,dc=xxx"
+        Add-DhcpServerInDC -DnsName "SRV1.http.xxx"
+        Add-DhcpServerv4Scope -Name "HTTP" -StartRange 10.20.23.11 -EndRange 10.20.23.254 -SubnetMask 255.255.255.0 -State Active
+        Set-DhcpServerv4OptionValue -DnsDomain http.xxx -DnsServer 10.20.23.1
+        Add-DhcpServerv4Reservation -ScopeId 10.20.23.0 -IPAddress 10.20.23.4 -ClientId "00-0C-29-BB-6A-67"
