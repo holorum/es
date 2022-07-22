@@ -1,0 +1,79 @@
+---
+- name: "Setting up rdp1"
+  hosts: rdp1
+  tasks:
+  - name: "Become AD member"
+    win_domain_membership:
+      dns_domain_name: http.xxx
+      hostname: rdp1
+      domain_admin_user: Administrator@http.xxx
+      domain_admin_password: Admin123
+      state: domain
+    register: domain_member
+  - name: "Rebooting rdp1"
+    win_reboot:
+    when: domain_member.reboot_required
+- name: Installing stuff
+  hosts: rdp1
+  become: yes
+  become_method: runas
+  vars:
+    ansible_become_user: HTTP\Administrator
+    ansible_become_password: Admin123
+  tasks:
+  - name: Installing Remote Desktop Services
+    win_feature:
+      name: 
+      - Remote-Desktop-Services
+      - RDS-Connection-Broker
+      - RDS-RD-Server
+      - RDS-Web-Access
+      state: present
+    register: install
+  - name: Rebooting rdp1
+    win_reboot:
+    when: install.reboot_required
+  - name: Creating and running RDS deployment script
+    win_shell: |
+      mkdir C:\ps
+      cd C:\ps
+      echo "Import-Module RemoteDesktop" >> RDSdeploy.ps1
+      echo "New-RDSessionDeployment -ConnectionBroker rdp1.http.xxx -WebAccessServer rdp1.http.xxx -SessionHost rdp1.http.xxx" >> RDSdeploy.ps1
+      echo 'New-RDSessionCollection -CollectionName RDPcollection -SessionHost rdp1.http.xxx -CollectionDescription "MUKODJ PLS" -ConnectionBroker rdp1.http.xxx' >> RDSdeploy.ps1
+      echo 'New-RDRemoteApp -Alias "Notepad" -DisplayName "Notepad" -FilePath "C:\Windows\System32\Notepad.exe" -ShowInWebAccess 1 -ConnectionBroker rdp1.http.xxx -CollectionName "RDPcollection"' >> RDSdeploy.ps1
+      .\RDSdeploy.ps1
+  - name: Rebooting rdp1
+    win_reboot:
+  - name: Creating and running certreq script
+    win_shell: |
+      cd C:\ps
+      echo '$WebsiteName = "rdp1.http.xxx"' >> cucc.ps1
+      echo '$HostHeader = "rdp1.http.xxx"' >> cucc.ps1
+      echo '$ReqFile = "Cert_Req-$WebsiteName-" + "$Date" + ".req"' >> cucc.ps1
+      echo '$InfFile = @"' >> cucc.ps1
+      echo '    [NewRequest]`r' >> cucc.ps1
+      echo '    Subject = "CN=$HostHeader"`r' >> cucc.ps1
+      echo '    KeySpec = 1' >> cucc.ps1
+      echo '    KeyLength = 2048' >> cucc.ps1
+      echo '    Exportable = TRUE`r' >> cucc.ps1
+      echo '    RequestType = CMC`r' >> cucc.ps1
+      echo '    [RequestAttributes]' >> cucc.ps1
+      echo '    CertificateTemplate= WebServer' >> cucc.ps1
+      echo '    [Extensions]' >> cucc.ps1
+      echo '    2.5.29.17 = "{text}" ; SAN - Subject Alternative Name' >> cucc.ps1
+      echo '    _continue_ = "dns=rdp1.http.xxx&"' >> cucc.ps1
+      echo '"@' >> cucc.ps1
+      echo 'Write-Host "Generating Certificate Request file..." -ForegroundColor Yellow;' >> cucc.ps1
+      echo '$FinalInfFile = "Cert_Req_Inf-WebsiteName-" + "$Date" + ".inf"' >> cucc.ps1
+      echo 'New-Item $FinalInfFile -type file -value $InfFile' >> cucc.ps1
+      echo 'cmd /c "certreq -new $FinalInfFile $ReqFile"' >> cucc.ps1
+      echo 'Write-Host " "' >> cucc.ps1
+      echo 'Write-Host "Certificate request file for $WebsiteName successfully generated!" -foregroundcolor DarkGreen;' >> cucc.ps1
+      echo '$id = certreq.exe -config "srv1.http.xxx\http-SRV1-CA-4" -submit .\Cert_Req-rdp1.http.xxx-.req tomi.cer' >> cucc.ps1
+      echo '$id = (($id -replace "[^0-9]" , "") -split "\n")[0]' >> cucc.ps1
+      echo 'certreq -q -f -config "srv1.http.xxx\http-SRV1-CA-4" -retrieve $id tomi.cer' >> cucc.ps1
+      echo '$thumb = certreq -accept tomi.cer' >> cucc.ps1
+      echo '$thumb = $thumb.Split("`r`n")[5].TrimStart("  Thumbprint: ")' >> cucc.ps1
+      echo 'New-IISSiteBinding -Name "Default Web Site" -BindingInformation "*:443:rdp1.http.xxx" -CertificateThumbprint $thumb -CertStoreLocation "Cert:\LocalMachine\My" -Protocol https -Force' >> cucc.ps1
+      .\cucc.ps1
+  

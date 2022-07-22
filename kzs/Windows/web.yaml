@@ -1,0 +1,69 @@
+- name: "Web"
+  hosts: web1
+  tasks:
+  - name: Joining the domain
+    win_domain_membership:
+      dns_domain_name: http.xxx
+      hostname: web1
+      domain_admin_user: Administrator@http.xxx
+      domain_admin_password: Admin123
+      state: domain
+    register: domain_member
+  - name: Rebooting web1
+    win_reboot:
+    when: domain_member.reboot_required
+- name: Setting up IIS
+  hosts: web1
+  become: yes
+  become_method: runas
+  vars:
+    ansible_become_user: HTTP\Administrator
+    ansible_become_password: Admin123
+  tasks:
+  - name: Installing IIS
+    win_feature:
+      name: Web-Server
+      include_sub_features: true
+      include_management_tools: true
+      state: present
+  - name: Creating and running certreq script
+    win_shell: |
+      mkdir C:\certs
+      cd C:\certs
+      echo '$WebsiteName = "lola.http.xxx"' >> cucc.ps1
+      echo '$HostHeader = "lola.http.xxx"' >> cucc.ps1
+      echo '$ReqFile = "Cert_Req-$WebsiteName-" + "$Date" + ".req"' >> cucc.ps1
+      echo '$InfFile = @"' >> cucc.ps1
+      echo '    [NewRequest]`r' >> cucc.ps1
+      echo '    Subject = "CN=$HostHeader"`r' >> cucc.ps1
+      echo '    KeySpec = 1' >> cucc.ps1
+      echo '    KeyLength = 2048' >> cucc.ps1
+      echo '    Exportable = TRUE`r' >> cucc.ps1
+      echo '    RequestType = CMC`r' >> cucc.ps1
+      echo '    [RequestAttributes]' >> cucc.ps1
+      echo '    CertificateTemplate= WebServer' >> cucc.ps1
+      echo '    [Extensions]' >> cucc.ps1
+      echo '    2.5.29.17 = "{text}" ; SAN - Subject Alternative Name' >> cucc.ps1
+      echo '    _continue_ = "dns=lola.http.xxx&"' >> cucc.ps1
+      echo '"@' >> cucc.ps1
+      echo 'Write-Host "Generating Certificate Request file..." -ForegroundColor Yellow;' >> cucc.ps1
+      echo '$FinalInfFile = "Cert_Req_Inf-WebsiteName-" + "$Date" + ".inf"' >> cucc.ps1
+      echo 'New-Item $FinalInfFile -type file -value $InfFile' >> cucc.ps1
+      echo 'cmd /c "certreq -new $FinalInfFile $ReqFile"' >> cucc.ps1
+      echo 'Write-Host " "' >> cucc.ps1
+      echo 'Write-Host "Certificate request file for $WebsiteName successfully generated!" -foregroundcolor DarkGreen;' >> cucc.ps1
+      echo '$id = certreq.exe -config "srv1.http.xxx\http-SRV1-CA-4" -submit .\Cert_Req-lola.http.xxx-.req tomi.cer' >> cucc.ps1
+      echo '$id = (($id -replace "[^0-9]" , "") -split "\n")[0]' >> cucc.ps1
+      echo 'certreq -q -f -config "srv1.http.xxx\http-SRV1-CA-4" -retrieve $id tomi.cer' >> cucc.ps1
+      echo '$thumb = certreq -accept tomi.cer' >> cucc.ps1
+      echo '$thumb = $thumb.Split("`r`n")[5].TrimStart("  Thumbprint: ")' >> cucc.ps1
+      echo 'New-IISSiteBinding -Name "Default Web Site" -BindingInformation "*:443:lola.http.xxx" -CertificateThumbprint $thumb -CertStoreLocation "Cert:\LocalMachine\My" -Protocol https -Force' >> cucc.ps1
+      .\cucc.ps1
+  - name: "Downloading Web-deploy" #Kell mind2 webszerverre
+    win_get_url:
+      url: https://download.microsoft.com/download/0/1/D/01DC28EA-638C-4A22-A57B-4CEF97755C6C/WebDeploy_amd64_en-US.msi
+      dest: C:\msdeploy.msi
+  - name: "Installing Web-deploy"
+    win_shell: |
+        Start-Process msiexec.exe -Wait -ArgumentList '/I C:\msdeploy.msi ADDLOCAL=ALL'
+      
