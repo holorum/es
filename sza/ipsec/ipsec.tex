@@ -1,0 +1,101 @@
+% This is a simple sample document.  For more complicated documents take a look in the exercise tab. Note that everything that comes after a % symbol is treated as comment and ignored when the code is compiled.
+
+\documentclass{article} % \documentclass{} is the first command in any LaTeX code.  It is used to define what kind of document you are creating such as an article or a book, and begins the document preamble
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{amsmath} % \usepackage is a command that allows you to add functionality to your LaTeX code
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\title{IPSec Debian-Windows Debian része} % Sets article title
+\author{Szőke Attila} % Sets authors name
+\date{\today} % Sets date for date compiled
+
+% The preamble ends with the command \begin{document}
+\begin{document} % All begin commands must be paired with an end command somewhere
+    \maketitle % creates title using information in preamble (title, author, date)
+
+
+\vspace{5mm}
+    \section*{Alagút interfészek} % creates a section 
+
+    Ez az első verzió, amely egy fölösleges GRE interfészt használ, a következőben ez nem lesz benne.
+    
+    A Debian IP címe 10.10.10.1, a Windows-é 10.10.10.2. Az első alagút interfész a 10.20.20.0/24-es hálózaton történik, ezeknek elég lenne /30-asnak lenni.
+    
+    A második erre épül, a 10.30.30.0/24-esen megy, a harmadik pedig a 10.40.40.0/24-esen. \\
+
+    Győződjünk meg róla, hogy be van-e töltve az ip\_gre modul:
+
+    \begin{itemize}
+	    \item[\#] lsmod | grep gre
+    \end{itemize}
+
+    Amennyiben nincs kimenete az előző parancsnak, töltsük be:
+
+    \begin{itemize}
+	    \item[\#] modprobe ip\_gre
+    \end{itemize}
+
+    Ehhez a parancsok a következők:
+    \begin{itemize}
+	    \item[\#] ip tunnel add tun0 mode gre remote 10.10.10.2 local 10.10.10.1 ttl 255
+	    \item[\#] ip link set tun0 up
+	    \item[\#] ip addr add 10.20.20.1/24 dev tun0
+	    \item[\#] ip tunnel add tun1 mode gre remote 10.20.20.2 local 10.20.20.1 ttl 255
+	    \item[\#] ip link set tun1 up
+	    \item[\#] ip addr add 10.30.30.1/24 dev tun1
+	    \item[\#] ip tunnel add tun2 mode gre remote 10.30.30.2 local 10.30.30.1 ttl 255
+	    \item[\#] ip link set tun2 up
+	    \item[\#] ip addr add 10.40.40.1/24 dev tun2
+\end{itemize}
+
+
+
+
+    \section*{Strongswan} % creates a section 
+
+    Telepítsük fel a strongswan-t:
+
+    \begin{itemize}
+	    \item[\#] apt install strongswan
+    \end{itemize}
+
+    Írjuk át a \lstinline|/etc/ipsec.conf|-ot:
+
+    \begin{lstlisting}
+config setup
+        charondebug="all"
+        uniqueids=yes
+conn devgateway-to-prodgateway
+        type=tunnel
+        auto=add
+        auto=start
+        keyexchange=ikev2
+        authby=secret
+        left=10.20.20.1
+        leftsubnet=10.30.30.0/24
+        right=10.20.20.2
+        rightsourceip=10.20.20.2
+        rightsubnet=10.30.30.0/24
+        ike=aes256-sha1-modp1024!
+        esp=aes256-sha1!
+        aggressive=no
+        keyingtries=%forever
+        ikelifetime=28800s
+        lifetime=3600s
+        dpddelay=30s
+        dpdtimeout=120s
+        dpdaction=restart
+    \end{lstlisting}
+
+    Írjuk át a \lstinline|/etc/ipsec.secrets|-et: \\
+    \lstinline|%any %any : PSK ``Skill39''| \\
+
+
+    Indítsuk (újra) a strongswan-t: \\
+    \lstinline|systemctl restart strongswan-starter|
+
+\end{document}
+
