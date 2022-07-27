@@ -49,7 +49,39 @@
 	    \item[\#] ip tunnel add tun2 mode gre remote 10.30.30.2 local 10.30.30.1 ttl 255
 	    \item[\#] ip link set tun2 up
 	    \item[\#] ip addr add 10.40.40.1/24 dev tun2
-\end{itemize}
+     \end{itemize}
+
+     Hogy az interfészek újraindításkor is műkdödjenek, az alábbit kell beleírni a \lstinline|/etc/network/interfaces|-be:
+    \begin{lstlisting}
+tun0 inet tunnel
+        address 10.20.20.1
+        netmask 255.255.255.0
+        mode gre
+        endpoint 10.10.10.2
+        local 10.10.10.1
+        ttl 255
+        remote 10.10.10.2
+iface tun1 inet tunnel
+        address 10.30.30.1
+        netmask 255.255.255.0
+        mode gre
+        endpoint 10.20.20.2
+        local 10.20.20.1
+        ttl 255
+        remote 10.20.20.2
+iface tun2 inet tunnel
+        address 10.40.40.1
+        netmask 255.255.255.0
+        mode gre
+        endpoint 10.30.30.2
+        local 10.30.30.1
+        ttl 255
+        remote 10.30.30.2
+auto tun0
+auto tun1
+auto tun2
+    \end{lstlisting}
+
 
 
 
