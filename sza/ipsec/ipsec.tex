@@ -54,7 +54,7 @@
 
      Hogy az interfészek újraindításkor is műkdödjenek, az alábbit kell beleírni a \texttt{/etc/network/interfaces}-be:
     \begin{lstlisting}
-tun0 inet tunnel
+iface tun0 inet tunnel
         address 10.20.20.1
         netmask 255.255.255.0
         mode gre
