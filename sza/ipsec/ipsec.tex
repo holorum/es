@@ -99,7 +99,6 @@ auto tun2
 
     Írjuk át a \texttt{/etc/ipsec.conf}-ot:
 
-    \texttt{
     \begin{lstlisting}
 config setup
         charondebug="all"
@@ -123,7 +122,7 @@ conn devgateway-to-prodgateway
         lifetime=3600s
         dpddelay=30s
         dpdtimeout=120s
-	dpdaction=restart}
+	dpdaction=restart
     \end{lstlisting}
 
     Írjuk át a \texttt{/etc/ipsec.secrets}-et: \\
