@@ -1,0 +1,21 @@
+#!/bin/bash
+
+$FILE /root/fstabdone
+if [[ -f "/root/fstabdone" ]]; then
+	echo "1" > /root/fstabdone
+else
+	echo "//10.10.10.222/dcshare /media/smbmount cifs _netdev,nofail,file_mode=0777,dir_mode=0777,username=administrator,password=Admin123" >> /etc/fstab
+	echo "1" > /root/fstabdone
+fi
+
+echo "1" > /root/fstabdone
+
+sudo mount -a
+
+if [[ -f "/root/crondone" ]]; then
+	echo "1" > /root/crondone
+else
+	echo "* * * * * root	rsync --ignore-errors --recursive /media/smbmount/* /media/smbsync/" >> /etc/crontab
+	echo "* * * * * root	rsync --ignore-errors --recursive /media/smbsync/* /media/smbmount/" >> /etc/crontab
+	echo "1" > /root/crondone
+fi
