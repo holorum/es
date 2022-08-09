@@ -1,0 +1,151 @@
+- name: LDAP configuration
+  hosts: LDAP
+  become: true
+  vars:
+    users:
+    - uid: mailtest
+      password: test
+    - uid: kiskacsa
+      password: test2
+  tasks:
+  - name: Configure SLAPD [1/3]
+    debconf:
+      name: slapd
+      question: slapd/no_configuration
+      value: "false"
+      vtype: boolean
+  - name: Configure SLAPD [2/3]
+    debconf:
+      name: slapd
+      question: slapd/password1
+      value: "{{ ldap.password }}"
+      vtype: password
+  - name: Configure SLAPD [3/3]
+    debconf:
+      name: slapd
+      question: slapd/password2
+      value: "{{ ldap.password }}"
+      vtype: password
+  - name: Configure SLAPD [4/3]
+    debconf:
+      name: slapd
+      question: slapd/domain
+      value: "{{ ldap.domain }}"
+      vtype: string
+  - name: Run regex
+    set_fact:
+      ldap_domain: "dc={{ ldap.domain | regex_replace('\\.', ',dc=') }}"
+  - name: Install SLAPD
+    apt:
+      update_cache: true
+      name: "{{ item }}"
+    loop:
+    - slapd
+    - ldap-utils
+    - python3-ldap
+    - python3-cryptography
+  - name: Configure listening ports
+    lineinfile:
+      line: "SLAPD_SERVICES=\"ldap:/// ldapi:/// ldaps:///\""
+      regexp: '^SLAPD_SERVICES="'
+      backrefs: true
+      path: "/etc/default/slapd"
+  - name: Change config password
+    ldap_attrs:
+      dn: "olcDatabase={0}config,cn=config"
+      attributes:
+        olcRootPW: "{{ldap.password}}"
+      state: exact
+  - name: Copy Postfix Schema
+    copy:
+      src: files/postfix.ldif
+      dest: /etc/ldap/postfix.ldif
+  - name: Register Postfix Schema
+    command: "ldapadd -Y EXTERNAL -D cn=admin,cn=config -w {{ldap.password}} -H ldapi:/// -f /etc/ldap/postfix.ldif"
+    ignore_errors: true
+  - name: Create mail group
+    ldap_entry:
+      dn: "ou=mail,{{ ldap_domain }}"
+      objectClass: organizationalUnit
+      bind_dn: "cn=admin,{{ ldap_domain }}"
+      bind_pw: "{{ ldap.password }}"
+  - name: Create users
+    ldap_entry:
+      dn: "uid={{ item.uid }},ou=mail,{{ ldap_domain }}"
+      objectClass:
+      - account
+      - posixAccount
+      - postfixUser
+      attributes:
+        uid: "{{ item.uid }}"
+        uidnumber: "{{ 20000 + idx }}"
+        gidnumber: "{{ 20000 + idx }}"
+        userpassword: "{{ item.password }}"
+        mailacceptinggeneralid: "{{ item.uid }}@{{ ldap.domain }}"
+        maildrop: "{{ item.uid }}@{{ ldap.domain }}"
+        cn: "{{ item.uid }}"
+        homeDirectory: "/home/mail/{{item.uid}}"
+      bind_dn: "cn=admin,{{ ldap_domain }}"
+      bind_pw: "{{ ldap.password }}"
+    loop: "{{ users }}"
+    loop_control:
+      index_var: "idx"
+  - name: Create mail reader
+    ldap_entry:
+      dn: "cn=mailAccountReader,{{ ldap_domain }}"
+      objectClass:
+      - organizationalRole
+      - simpleSecurityObject
+      attributes:
+        userPassword: "{{ ldap.password }}"
+      bind_dn: "cn=admin,{{ ldap_domain }}"
+      bind_pw: "{{ ldap.password }}"
+  - name: Create slapd.conf
+    template:
+      src: templates/slapd.conf.j2
+      dest: /etc/ldap/slapd.conf
+  - name: Create CA private key
+    community.crypto.openssl_privatekey:
+      path: /etc/ldap/CA.key
+  - name: Create CA pem
+    community.crypto.x509_certificate:
+      path: /etc/ldap/CA.pem
+      privatekey_path: /etc/ldap/CA.key
+      provider: selfsigned
+  - name: Create LDAP private key
+    community.crypto.openssl_privatekey:
+      path: /etc/ldap/ldap.key
+      owner: openldap
+      group: openldap
+  - name: Create LDAP CSR
+    community.crypto.openssl_csr:
+      path: /etc/ldap/ldap.csr
+      privatekey_path: /etc/ldap/ldap.key
+      common_name: "ldap.{{ldap.domain}}"
+      owner: openldap
+      group: openldap
+  - name: Create LDAP CRT
+    community.crypto.x509_certificate:
+      path: /etc/ldap/ldap.crt
+      csr_path: /etc/ldap/ldap.csr
+      provider: ownca
+      ownca_path: /etc/ldap/CA.pem
+      ownca_privatekey_path: /etc/ldap/CA.key
+      owner: openldap
+      group: openldap
+  - name: Modify config for TLS [1/2]
+    ldap_attrs:
+      dn: "cn=config"
+      attributes:
+        olcTLSCACertificateFile: /etc/ldap/CA.pem
+        olcTLSCertificateKeyFile: /etc/ldap/ldap.key
+        olcTLSCertificateFile: /etc/ldap/ldap.crt
+      state: exact
+  - name: Modify config for TLS [2/2]
+    lineinfile:
+      path: /etc/ldap/ldap.conf
+      line: "TLS_CACERT /etc/ldap/CA.pem"
+      backrefs: true
+      regexp: '^TLS_CACERT'
+  - name: Upload CA.pem
+    command: "scp /etc/ldap/CA.pem user@ftp.http.lan:CA.pem"

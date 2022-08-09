@@ -1,0 +1,15 @@
+server_host = dc1.http.lan
+server_port = 389
+version = 3
+start_tls = no
+
+bind = yes
+bind_dn = vmail
+bind_pw = Passw0rd
+
+search_base = cn=users,dc=http,dc=lan
+scope = sub
+
+query_filter = (&(userPrincipalName=%s)(objectClass=person)(!(userAccountControl=514)))
+result_attribute = userPrincipalName
+debuglevel = 1

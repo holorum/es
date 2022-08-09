@@ -1,0 +1,49 @@
+- name: AD
+  hosts: dc1
+  tasks:
+  - name: AD
+    win_domain:
+      install_dns: true
+      dns_domain_name: http.lan
+      safe_mode_password: Admin123
+    register: ad
+  - name: Reboot
+    win_reboot:
+    when: ad.reboot_required
+  - name: DC
+    win_domain_controller:
+      dns_domain_name: http.lan
+      domain_admin_user: Administrator@http.lan
+      domain_admin_password: Admin123
+      safe_mode_password: Admin123
+      state: domain_controller
+      site_name: DC1
+    register: dc
+  - name: Features
+    win_feature:
+      name:
+      - DHCP
+      include_sub_features: true
+      state: present
+      include_management_tools: true
+    register: features
+  - name: Rename
+    ansible.windows.win_powershell:
+      script: |
+        Rename-Computer -NewName dc1
+  - name: Reboot
+    win_reboot:
+  - name: Powershell
+    ansible.windows.win_powershell:
+      script: |
+        netsh dhcp add securitygroups
+        Restart-Service dhcpserver
+        Add-DhcpServerInDC -DnsName "dc1.http.lan"
+        Add-DhcpServerv4Scope -Name "HTTP" -StartRange 10.10.10.21 -EndRange 10.10.10.200 -SubnetMask 255.255.255.0 -State Active
+        Set-DhcpServerv4OptionValue -DnsDomain http.lan -DnsServer 10.10.10.222
+        Set-DhcpServerv4DnsSetting -ScopeId 10.10.10.0 -DynamicUpdates Always
+        Add-DnsServerResourceRecordCName -Name "imap" -HostNameAlias "dovecot.http.lan" -ZoneName "http.lan"
+        Add-DnsServerResourceRecordCName -Name "smtp" -HostNameAlias "postfix.http.lan" -ZoneName "http.lan"
+        Add-DnsServerForwarder -IPAddress 8.8.8.8
+  - name: Reboot
+    win_reboot:

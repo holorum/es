@@ -1,0 +1,56 @@
+service imap-login {
+    inet_listener imap {
+        port = 143
+    }
+    inet_listener imaps {
+        port = 993
+        ssl = yes
+    }
+    service_count = 1
+    process_min_avail = 1
+}
+service pop3-login {
+    inet_listener pop3 {
+
+    }
+    inet_listener pop3s {
+    
+    }
+}
+service submission-login {
+    inet_listener submission {
+
+    }
+}
+service lmtp {
+    inet_listener lmtp {
+        address = {{ dovecotsrv }}
+        port = 24
+    }
+}
+service imap {
+
+}
+service pop3 {
+
+}
+service submission {
+
+}
+service auth {
+    unix_listener auth-userdb {
+        mode = 0666
+    }
+    inet_listener postfix {
+        address = {{ dovecotsrv }}
+        port = 25
+    }
+}
+service auth-worker {
+
+}
+service dict {
+    unix_listener dict {
+
+    }
+}

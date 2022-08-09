@@ -1,0 +1,14 @@
+hosts = dc1.http.lan:389
+dn = vmail
+dnpass = Passw0rd
+deref = never
+auth_bind = yes
+ldap_version = 3
+debug_level = 1
+base = cn=users,dc=http,dc=lan
+scope = subtree
+user_filter = (&(userPrincipalName=%u)(objectClass=person)(!(userAccountControl=514)))
+pass_filter = (&(userPrincipalName=%u)(objectClass=person)(!(userAccountControl=514)))
+user_attrs = =home=/home/mail/%n,=mail=maildir:/home/mail/%n
+pass_attrs = userPassword=password
+default_pass_scheme = CRYPT

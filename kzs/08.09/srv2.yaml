@@ -1,0 +1,53 @@
+---
+- name: SRV2_SETUP
+  hosts: srv2
+  gather_facts: false
+  tasks:
+    - name: Test connection with ping 
+      win_ping:
+
+    - name: Become RODC
+      ansible.windows.win_domain_controller:
+        dns_domain_name: http.xxx
+        domain_admin_user: Administrator@http.xxx
+        domain_admin_password: Admin123
+        safe_mode_password: Admin123
+        state: domain_controller
+        read_only: yes
+        site_name: Default-First-Site-Name
+      register: dc
+
+    - name: Create PHOTOS folder
+      ansible.windows.win_file:
+        path: C:\PHOTOS
+        state: directory
+
+    - name: Share the PHOTOS folder
+      ansible.windows.win_share:
+        name: PHOTOS
+        description: share for your lovely photos
+        path: C:\PHOTOS
+        list: yes
+        read: Girls
+        change: Administrators
+#        deny: Domain Users
+
+    - name: Create shared folder VIDEOS
+      ansible.windows.win_file:
+        path: C:\VIDEOS
+        state: directory
+
+    - name: Share the VIDEOS folder
+      ansible.windows.win_share:
+        name: VIDEOS
+        description: share for your lovely videos
+        path: C:\VIDEOS
+        list: yes
+        change: Administrators
+        read: Girls
+#        deny: Domain Users
+
+
+    - name: Reboot SRV2
+      win_reboot:
+      when: dc.reboot_required

@@ -1,0 +1,186 @@
+---
+- name: "Setting up Postfix"
+  hosts: postfix
+  become: true
+  vars:
+    postfix_pkgs:
+      - "postfix"
+      - "sasl2-bin"
+      - "postfix-ldap"
+    mail_owner: postfix
+    hostname: postfix.http.lan
+    domain: http.lan
+    subnet: 10.10.10.0/24
+    dovecotsrv: dovecot.http.lan
+    ssl_cert_file: /etc/postfix/CA.pem
+    #ssl_key_file: /etc/ssl/cert.key
+  tasks:
+  #- name: "Copying certificates"
+   # ansible.builtin.command: scp user@ftp.http.lan:CA.pem /etc/postfix/CA.pem
+  - name: "Installing Postfix"
+    apt:
+      name: "{{ item }}"
+      update_cache: true
+    loop: "{{ postfix_pkgs }}"
+  - name: "Creating LDAP directory"
+    ansible.builtin.file:
+      path: /etc/postfix/ldap
+      state: directory
+      owner: root
+      group: root
+      mode: 0777
+  - name: Creating postfix transport
+    template:
+      src: templates/transport.j2
+      dest: /etc/postfix/transport
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating virtual_alias_domains"
+    template:
+      src: templates/virtual_alias_domains.j2
+      dest: /etc/postfix/ldap/virtual_alias_domains
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating ad_virtual_group_maps"
+    template:
+      src: templates/ad_virtual_group_maps.j2
+      dest: /etc/postfix/ldap/ad_virtual_group_maps
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating ad_virtual_mailbox_maps"
+    template:
+      src: templates/ad_virtual_mailbox_maps.j2
+      dest: /etc/postfix/ldap/ad_virtual_mailbox_maps
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating virtual_uid_maps"
+    template:
+      src: templates/virtual_uid_maps.j2
+      dest: /etc/postfix/ldap/virtual_uid_maps
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating ad_sender_login_maps"
+    template:
+      src: templates/ad_sender_login_maps.j2
+      dest: /etc/postfix/ldap/ad_sender_login_maps
+      owner: root
+      group: root
+      mode: 0644
+  - name: "Creating /home/mail"
+    ansible.builtin.file:
+      path: /home/mail
+      state: directory
+      owner: mail
+      group: mail
+      mode: 0777
+  - name: "Configuring main.cf"
+    template:
+      src: templates/main.cf.j2
+      dest: /etc/postfix/main.cf
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring master.cf"
+    template:
+      src: templates/master.cf.j2
+      dest: /etc/postfix/master.cf
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring var-spool-postfix-etc-ldap-tls-CA.pem.mount"
+    template:
+      src: templates/var-spool-postfix-etc-ldap-tls-CA.pem.mount.j2
+      dest: /etc/systemd/system/var-spool-postfix-etc-postfix.mount
+      mode: 0644
+      owner: root
+      group: root
+  - name: Enabling the postfix mount
+    ansible.builtin.systemd:
+      name: var-spool-postfix-etc-postfix.mount
+      state: started
+      enabled: yes
+      daemon_reload: yes
+  - name: Restarting Postfix
+    ansible.builtin.systemd:
+      name: postfix
+      state: restarted
+- name: "Setting up Dovecot"
+  hosts: dovecot
+  become: true
+  vars:
+    dovecot_pkgs:
+      - "dovecot-core"
+      - "dovecot-pop3d"
+      - "dovecot-imapd"
+      - "dovecot-lmtpd"
+      - "dovecot-ldap"
+    dovecotsrv: dovecot.http.lan
+    maildir_location: "~/mailbox"
+    ssl_cert_file: /etc/dovecot/CA.pem
+    #ssl_key_file: /etc/ssl/key.crt
+  tasks:
+  #- name: "Copying certificates"
+   # ansible.builtin.command: scp user@ftp.http.lan:CA.pem /etc/dovecot/CA.pem
+  - name: "Installing Dovecot"
+    apt:
+      name: "{{ item }}"
+      update_cache: true
+    loop: "{{ dovecot_pkgs }}"
+  - name: "Configuring dovecot.conf"
+    template:
+      src: templates/dovecot.conf.j2
+      dest: "/etc/dovecot/dovecot.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring 10-auth.conf"
+    template:
+      src: templates/10-auth.conf.j2
+      dest: "/etc/dovecot/conf.d/10-auth.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring 10-mail.conf"
+    template:
+      src: templates/10-mail.conf.j2
+      dest: "/etc/dovecot/conf.d/10-mail.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring 10-master.conf"
+    template:
+      src: templates/10-master.conf.j2
+      dest: "/etc/dovecot/conf.d/10-master.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring 10-ssl.conf"
+    template:
+      src: templates/10-ssl.conf.j2
+      dest: "/etc/dovecot/conf.d/10-ssl.conf"
+      mode: 0644
+      owner: root
+      group: root
+  - name: "Configuring dovecot-ldap.conf.ext"
+    template:
+      src: templates/dovecot-ldap.conf.ext.j2
+      dest: "/etc/dovecot/dovecot-ldap.conf.ext"
+      mode: 0644
+      owner: root
+      group: root
+  - name: Creating mail folder
+    file:
+      name: /home/mail
+      state: directory
+      owner: dovecot
+      group: dovecot
+      mode: 0777
+  - name: Restarting dovecot
+    ansible.builtin.systemd:
+      name: dovecot
+      state: restarted

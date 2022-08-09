@@ -1,0 +1,40 @@
+- name: Enable LDAP login
+  hosts: client
+  become: true
+  tasks:
+  - name: Preconfigure NSLCD
+    debconf:
+      name: nslcd
+      question: "{{ item.q }}"
+      value: "{{ item.v }}"
+      vtype: "{{ item.vt }}"
+    loop:
+    - q: nslcd/ldap-bindpw
+      v: "{{ ldap.password }}"
+      vt: password
+    - q: nslcd/ldap-auth-type
+      v: simple
+      vt: select
+    - q: nslcd/ldap-binddn
+      v: "cn=admin,dc={{ ldap.domain | regex_replace('\\.', ',dc=') }}"
+      vt: text
+    - q: nslcd/ldap-starttls
+      v: false
+      vt: select
+    - q: nslcd/ldap-base
+      v: "dc={{ ldap.domain | regex_replace('\\.', ',dc=') }}"
+      vt: text
+    - q: nslcd/ldap-uris
+      v: "ldap://ldap.{{ ldap.domain }}"
+      vt: text
+  - name: Preconfigure libnss-ldapd
+    debconf:
+      name: libnss-ldapd
+      question: libnss-ldapd/nsswitch
+      value: passwd, group, shadow
+      vtype: multiselect
+  - name: Install neccessary packages
+    apt:
+      name: libnss-ldapd
+  - name: Configure libpam-ldapd
+    command: "pam-auth-update --enable mkhomedir"

@@ -1,0 +1,8 @@
+to attrs=userPassword
+  by self =xw
+  by anonymous auth
+  by * none
+
+to dn.subtree="ou=mail,{{ldap_domain}}"
+  by dn.base="cn=mailAccountReader,{{ldap_domain}}" read
+  by * none

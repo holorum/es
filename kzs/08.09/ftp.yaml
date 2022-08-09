@@ -1,0 +1,76 @@
+---
+  - name: "FTP"
+    hosts: FTP
+    become: true
+    vars: 
+      username: test
+      passwd: asdf
+      path: "/smb/shr1"
+    tasks:
+    - name: "Installing vsftpd"
+      apt: 
+        name: vsftpd
+        update_cache: false
+    - name: "Installing rsync"
+      apt: 
+        name: rsync
+        update_cache: false
+    - name: "Installing samba-common"
+      apt: 
+        name: samba-common
+        update_cache: false
+    - name: "Installing samba"
+      apt: 
+        name: samba
+        update_cache: false
+    - name: "Creating /etc/vsftpd.conf"
+      template: 
+        src: templates/vsftpd.conf.j2
+        dest: /etc/vsftpd.conf
+        owner: root
+        group: root
+        mode: 0644
+    - name: "Creating /etc/samba/smb.conf"
+      template: 
+        src: templates/smb.conf.j2
+        dest: /etc/samba/smb.conf
+        owner: root
+        group: root
+        mode: 0644
+    - name: "Restart vsftpd"
+      service: 
+        name: vsftpd
+        state: restarted
+    - ansible.builtin.group:
+        name: "{{ username }}"
+        state: present
+    - ansible.builtin.user:
+        name: "{{ username }}"
+        group: test
+    - ansible.builtin.shell: "bash -c \"echo -e '{{ passwd }}\n{{ passwd }}' | smbpasswd -a -s {{ username }}\""
+      #- ansible.builtin.shell: "mkdir -p {{ path }} "
+      #- ansible.builtin.shell: "chown -R :{{ username }} {{ path }} "
+      #- ansible.builtin.shell: "chmod -R g+w {{ path }}"
+    - name: Change file ownership, group and permissions
+      ansible.builtin.file:
+        path: 
+          - "{{ path }}"
+        owner: root
+        group: test
+          #- "{{ username }}"
+        mode: '0775'
+        state: directory
+
+    - name: "Restart smbd"
+      service: 
+        name: smbd
+        state: restarted
+
+    - name: "SMB-FTP sync"
+      template: 
+        src: templates/smbsync.sh.j2
+        dest: /root/smbsync.sh
+        owner: root
+        group: root
+        mode: 0755
+    - ansible.builtin.shell: "/root/smbsync.sh"
