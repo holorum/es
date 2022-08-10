@@ -1,0 +1,38 @@
+---
+  - name: "Install Stronswan"
+    hosts: debian
+    become: true
+    tasks:
+    - name: "Install strongswan"
+      apt:
+        name: strongswan
+        update_cache: false
+    - ansible.builtin.shell: "modprobe ip_gre"
+    - name: "Creating ipsec.conf"
+      template:
+        src: templates/ipsec.conf.j2
+        dest: /etc/ipsec.conf
+        owner: root
+        group: root
+        mode: 755
+    - name: "Creating ipsec.secrets"
+      template:
+        src: templates/ipsec.secrets.j2
+        dest: /etc/ipsec.secrets
+        owner: root
+        group: root
+        mode: 755
+    - name: "Creating sysctl.conf"
+      template:
+        src: templates/sysctl.conf.j2
+        dest: /etc/sysctl.conf
+        owner: root
+        group: root
+        mode: 755
+    - name: "Creating interfaces"
+      template:
+        src: templates/interfaces.j2
+        dest: /etc/network/interfaces
+        owner: root
+        group: root
+        mode: 755

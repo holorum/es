@@ -1,0 +1,18 @@
+- name: Windows part of S2S
+  hosts: windows
+  tasks:
+  - name: Install RAS
+    win_feature:
+      name: DirectAccess-VPN
+      include_management_tools: true
+  - name: Configure RAS
+    win_shell: |
+      Install-RemoteAccess -VpnType VpnS2S
+  - name: Reboot
+    win_reboot:
+  - name: Interfaces
+    win_shell: |
+      Start-Service RemoteAccess
+      Add-VpnS2SInterface -Name GRE -GreTunnel -SourceIpAddress 10.10.10.3 -Destination 10.10.10.2 -IPv4Subnet 10.20.20.0/24:100 -IPv4Address 10.20.20.2
+      Add-VpnS2SInterface -Name IPSec -Protocol IKEv2 -Destination 10.20.20.1 -IPv4Subnet 192.168.100.0/24:100 -AuthenticationMethod PSKOnly -SharedSecret "Skill39" -InternalIPv4 1 -InternalIPv6 0 -InitiateConfigPayload 1
+      Connect-VpnS2SInterface -Name IPSec

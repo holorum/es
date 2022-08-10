@@ -1,0 +1,27 @@
+# and how to activate them. For more information, see interfaces(5).
+
+source /etc/network/interfaces.d/*
+
+# The loopback network interface
+auto lo
+iface lo inet loopback
+
+# The primary network interface
+auto ens33
+auto ens37
+allow-hotplug ens33
+iface ens33 inet static
+	address 10.10.10.2/24
+allow-hotplug ens37
+iface ens37 inet static
+	address 192.168.100.1/24
+
+iface tun0 inet tunnel
+	address 10.20.20.1
+	netmask 255.255.255.0
+	mode gre
+	endpoint 10.10.10.3
+	local 10.10.10.2
+	ttl 255
+	remote 10.10.10.3
+auto tun0

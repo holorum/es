@@ -1,0 +1,13 @@
+vms:
+  hosts:
+    debian:
+      ansible_host: 10.10.10.2
+      ansible_user: user
+    windows:
+      ansible_host: 10.10.10.3
+      ansible_connection: winrm
+      ansible_winrm_server_cert_validation: ignore
+      ansible_user: Administrator
+      ansible_password: Admin123
+      ansible_winrm_transport: basic
+      ansible_port: 5985
