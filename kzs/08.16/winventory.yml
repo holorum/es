@@ -1,0 +1,12 @@
+hosts:
+  dc-ca:
+    ansible_host: 10.10.10.222
+  winclient:
+    ansible_host: 10.10.10.10
+  vars:
+    ansible_connection: winrm
+    ansible_winrm_server_cert_validation: ignore
+    ansible_user: Administrator
+    ansible_password: Admin123
+    ansible_winrm_transport: basic
+    ansible_port: 5985
