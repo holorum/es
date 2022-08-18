@@ -1,0 +1,149 @@
+---
+- name: Debian Server Setup
+  hosts: debvpn
+  become: true
+  vars:
+    pkgs:
+      - openvpn
+      - openvpn-auth-ldap
+    priv_ip_pool: "10.8.0.0 255.255.255.0"
+    dc: 10.10.10.222
+    query_user_path: cn=query,cn=Users,dc=skill39,dc=net
+    query_user_passwd: Passw0rd
+    base_dn: "cn=Users,dc=skill39,dc=net"
+  tasks:
+  - name: Installing packages
+    apt:
+      name: "{{ item }}"
+      update_cache: true
+    loop: "{{ pkgs }}"
+  - name: Editing sysctl.conf
+    template:
+      src: templates/sysctl.conf.j2
+      dest: /etc/sysctl.conf
+      mode: 644
+      owner: root
+      group: root
+  - name: Copying EasyRSA directory to /etc/openvpn
+    ansible.builtin.copy:
+      src: /usr/share/easy-rsa
+      remote_src: true
+      dest: /etc/openvpn
+      mode: 0755
+      owner: root
+      group: root
+  - name: Renaming vars.example to vars
+    template:
+      src: templates/vars.j2
+      dest: /etc/openvpn/easy-rsa/vars
+      mode: 644
+      owner: root
+      group: root
+  - name: Initializing the PKI
+    ansible.builtin.shell:
+      cmd: /etc/openvpn/easy-rsa/easyrsa init-pki
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Building the CA
+    ansible.builtin.shell:
+      cmd: /etc/openvpn/easy-rsa/easyrsa build-ca nopass
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Generating a private key for the server
+    ansible.builtin.shell:
+      cmd: /etc/openvpn/easy-rsa/easyrsa gen-req server nopass
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Signing the server cert
+    ansible.builtin.shell:
+      cmd: /etc/openvpn/easy-rsa/easyrsa sign-req server server
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Building a DH key exchange
+    ansible.builtin.shell:
+      cmd: /etc/openvpn/easy-rsa/easyrsa gen-dh
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Generating HMAC signature
+    ansible.builtin.shell:
+      cmd: openvpn --genkey --secret ta.key
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Copying the created certs and keys to /etc/openvpn
+    ansible.builtin.shell:
+      cmd: cp ta.key /etc/openvpn && cp /etc/openvpn/easy-rsa/pki/ca.crt /etc/openvpn/ && cp /etc/openvpn/easy-rsa/pki/private/server.key /etc/openvpn/ && cp /etc/openvpn/easy-rsa/pki/issued/server.crt /etc/openvpn/ && cp /etc/openvpn/easy-rsa/pki/dh.pem /etc/openvpn/
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Generating the key for the client
+    ansible.builtin.shell:
+      cmd: /etc/openvpn/easy-rsa/easyrsa gen-req client nopass
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Signing the client cert
+    ansible.builtin.shell:
+      cmd: /etc/openvpn/easy-rsa/easyrsa sign-req client client
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Copying the client cert, client key and CA cert to /etc/openvpn/client
+    ansible.builtin.shell:
+      cmd: cp /etc/openvpn/easy-rsa/pki/ca.crt /etc/openvpn/client/ && cp /etc/openvpn/easy-rsa/pki/issued/client.crt /etc/openvpn/client/ && cp /etc/openvpn/easy-rsa/pki/private/client.key /etc/openvpn/client/
+      chdir: /etc/openvpn/easy-rsa/
+  - name: Editing server.conf
+    template:
+      src: templates/server.conf.j2
+      dest: /etc/openvpn/server.conf
+      mode: 644
+      owner: root
+      group: root
+  - name: Creating auth directory in /etc/openvpn
+    ansible.builtin.file:
+      path: /etc/openvpn/auth
+      state: directory
+      mode: 0755
+      owner: root
+      group: root
+  - name: Editing auth.ldap.conf
+    template:
+      src: templates/auth-ldap.conf.j2
+      dest: /etc/openvpn/auth/auth-ldap.conf
+      mode: 644
+      owner: root
+      group: root
+  - name: Starting openvpn@server
+    service:
+      name: openvpn@server
+      state: started
+  - name: Loop through the folder bitch
+    ansible.builtin.find:
+      paths: /etc/openvpn/client/
+    register: files
+  - name: Fetching CA cert, client cert and client key from the server to /etc/openvpn
+    ansible.builtin.fetch:
+      src: "{{item}}"
+      dest: asd
+    loop: "{{files.files | map(attribute='path')}}"
+  - name: Fetching TA key from the server to /etc/openvpn
+    ansible.builtin.fetch:
+      src: /etc/openvpn/ta.key
+      dest: asd
+
+- name: Debian Client Setup
+  hosts: debclient
+  become: true
+  vars:
+    vpn_server: 10.10.10.1
+    pkgs:
+      - openvpn
+      - openvpn-auth-ldap
+  tasks:
+  - name: Installing the packages
+    apt:
+      name: "{{ item }}"
+      update_cache: true
+    loop: "{{ pkgs }}"
+  - name: Editing client.conf
+    template:
+      src: templates/client.conf.j2
+      dest: /etc/openvpn/client.conf
+      mode: 644
+      owner: root
+      group: root
+  - name: Copying CA cert, client cert and client key from the server to /etc/openvpn
+    ansible.builtin.copy:
+      src: asd/debvpn/etc/openvpn/client/
+      dest: /etc/openvpn/
+  - name: Copying TA key from the server to /etc/openvpn
+    ansible.builtin.copy:
+      src: asd/debvpn/etc/openvpn/ta.key
+      dest: /etc/openvpn/ta.key
