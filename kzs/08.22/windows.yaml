@@ -1,0 +1,101 @@
+- name: Install AD and CA
+  hosts: dc-ca
+  tasks:
+  - name: Rename
+    win_hostname:
+      name: DC-CA
+    register: res
+  - win_reboot:
+    when: res.reboot_required
+  - name: Domain cucc
+    win_domain:
+      install_dns: true
+      dns_domain_name: skill39.net
+      safe_mode_password: Admin123
+    register: res
+  - win_reboot:
+    when: res.reboot_required
+  - name: Install and configure AD
+    win_domain_controller:
+      dns_domain_name: skill39.net
+      domain_admin_user: Administrator@skill39.net
+      domain_admin_password: Admin123
+      safe_mode_password: Admin123
+      state: domain_controller
+      site_name: DC-CA
+    register: res
+  - win_reboot:
+    when: res.reboot_required
+  - name: Install CA
+    win_feature:
+      include_management_tools: true
+      name: ADCS-Cert-Authority
+  - name: Creating .ssh directory
+    ansible.windows.win_file:
+      path: C:\Users\Administrator\.ssh
+      state: directory
+  - name: Powershell
+    ignore_errors: true
+    win_shell: |
+      ssh-keygen -t rsa -N '""' -f $env:USERPROFILE\.ssh\id_rsa
+  - name: Fetch
+    fetch:
+      src: C:\Users\Administrator\.ssh\id_rsa.pub
+      dest: win_rsa.pub
+- name: Copy rsa to Debvpn
+  hosts: debvpn
+  become: true
+  tasks:
+  - name: 
+    ansible.builtin.shell: |
+      openssl req -x509 -newkey rsa:4096 -keyout debca.key -out debca.crt -sha256 -days 1000 -nodes -subj '/CN=debCA'
+  - name: Creating .ssh directory
+    ansible.builtin.file:
+      path: /root/.ssh
+      state: directory
+      owner: root
+      group: root
+  - name: Copy rsa
+    copy:
+      src: win_rsa.pub/dc-ca/C:/Users/Administrator/.ssh/id_rsa.pub
+      dest: /root/.ssh/authorized_keys
+- name: Back to Win
+  hosts: dc-ca
+  become: yes
+  become_method: runas
+  vars:
+    ansible_become_user: SKILL39\Administrator
+    ansible_become_password: Admin123
+  tasks:
+  - name: PS
+    win_shell: |
+      scp -o "StrictHostKeyChecking no" root@10.10.10.1:/home/user/debca.crt C:\
+      Import-Certificate -FilePath C:\debca.crt -CertStoreLocation "Cert:\LocalMachine\Root"
+      Install-AdcsCertificationAuthority -CACommonName winca -CAType EnterpriseSubordinateCa -OutputCertRequestFile C:\winca.req -Force
+      scp -o "StrictHostKeyChecking no" C:\winca.req root@10.10.10.1:/home/user/winca.req
+- name: Back to Deb
+  hosts: debvpn
+  become: true
+  tasks:
+  - name: Signing req
+    ansible.builtin.shell: |
+      openssl x509 -req -days 900 -in winca.req -CA debca.crt -CAkey debca.key -CAcreateserial -out winca.crt -extfile /etc/ssl/openssl.cnf -extensions v3_ca
+      mkdir demoCA
+      touch demoCA/index.txt
+      echo 1000 > demoCA/crlnumber
+      openssl ca -gencrl -keyfile debca.key -cert debca.crt -out debca.crl
+- name: Back to Windows once again
+  hosts: dc-ca
+  become: yes
+  become_method: runas
+  vars:
+    ansible_become_user: SKILL39\Administrator
+    ansible_become_password: Admin123
+  tasks:
+  - name: Getting the cert file
+    win_shell: |
+      scp -o "StrictHostKeyChecking no" root@10.10.10.1:/home/user/winca.crt C:\
+      scp -o "StrictHostKeyChecking no" root@10.10.10.1:/home/user/debca.crl C:\debCA.crl
+      certutil -addstore -f Root C:\debCA.crl
+      certutil -installcert C:\winca.crt
+      Start-Service certsvc

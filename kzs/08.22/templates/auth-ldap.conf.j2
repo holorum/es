@@ -1,0 +1,18 @@
+<LDAP>
+    URL     ldap://{{ dc }}
+    BindDN      {{ query_user_path }}
+    Password        {{ query_user_passwd }}
+    Timeout     15
+    TLSEnable       no
+    FollowReferrals     yes
+</LDAP>
+<Authorization>
+    BaseDN      {{ base_dn }}
+    SearchFilter    "(sAMAccountName=%u)"
+    RequireGroup        false
+    <Group>
+        BaseDN      "ou=Groups,dc=skill39,dc=net"
+        SearchFilter        "()"
+        MemberAttribute     uniqueMember
+    </Group>
+</Authorization>
