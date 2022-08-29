@@ -1,0 +1,20 @@
+- name: Install Master
+  become: true
+  hosts: master
+  tasks:
+  - name: Install MariaDB server
+    apt:
+      name: mariadb-server
+  - name: Copy config
+    template:
+      src: 60-galera.cnf.j2
+      dest: /etc/mysql/mariadb.conf.d/60-galera.cnf
+      owner: root
+      group: root
+      mode: 644
+  - name: Stop MariaDB
+    service:
+      name: mariadb
+      state: stopped
+  - name: Start Galera
+    shell: "galera_new_cluster"
