@@ -1,0 +1,27 @@
+oid_section = oids
+
+[req]
+prompt = no
+distinguished_name = winca
+req_extensions = v3_req
+attributes = winca-att
+
+[winca]
+0.DC=net
+1.DC=skill39
+CN=winca
+
+[v3_req]
+basicConstraints = CA:TRUE
+keyUsage = digitalSignature, keyCertSign, cRLSign
+certificateTemplateName = ASN1:PRINTABLESTRING:SubCA
+ca-version = ASN1:INTEGER:0
+subjectKeyIdentifier = hash
+
+[winca-att]
+os-version = 10.0.20348.2.
+
+[oids]
+os-version = 1.3.6.1.4.1.311.13.2.3
+certificateTemplateName = 1.3.6.1.4.1.311.20.2
+ca-version = 1.3.6.1.4.1.311.21.1

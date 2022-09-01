@@ -1,0 +1,15 @@
+---
+- name: Winvpn
+  hosts: dc-ca
+  tasks:
+  - name: Creating Share
+    win_share:
+      name: Share
+      path: C:\Share
+      list: yes
+      full: "Domain Users"
+  - name: Downloading Openvpn.msi
+    win_get_url:
+      url: https://openvpn.net/downloads/openvpn-connect-v3-windows.msi
+      dest: C:\Share\openvpn.msi
+  
